@@ -73,6 +73,7 @@ enum class lcTrackTool
 	RotateZ,
 	RotateXY,
 	RotateXYZ,
+	RotateCamera,
 	RotateTrainTrackRight,
 	RotateTrainTrackLeft,
 	InsertTrainTrack,
@@ -187,6 +188,11 @@ public:
 	int GetMouseY() const
 	{
 		return mMouseY;
+	}
+
+	float GetCameraRotationStartAngle() const
+	{
+		return mCameraRotationMouseAngle;
 	}
 
 	void SetBackgroundColorOverride(quint32 BackgroundColor)
@@ -328,6 +334,9 @@ protected:
 	int mMouseY = 0;
 	int mMouseDownX = 0;
 	int mMouseDownY = 0;
+	float mCameraRotationMouseAngle = 0.0f;
+	float mCameraRotationLastMouseAngle = 0.0f;
+	float mCameraRotationAngle = 0.0f;
 	Qt::KeyboardModifiers mMouseModifiers = Qt::NoModifier;
 
 	bool mTrackUpdated = false;

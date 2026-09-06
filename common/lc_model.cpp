@@ -3520,14 +3520,7 @@ void lcModel::RotateSelectedObjects(const lcVector3& Angles, bool Relative, bool
 	if (Angles.LengthSquared() < 0.001f)
 		return;
 
-	if (Checkpoint)
-	{
-		BeginHistorySequence();
-		BeginEditHistory(ModelHistoryEditMerge);
-	}
-
 	lcMatrix33 RotationMatrix = lcMatrix33Identity();
-	bool Rotated = false;
 
 	if (Angles[0] != 0.0f)
 		RotationMatrix = lcMul(lcMatrix33RotationX(Angles[0] * LC_DTOR), RotationMatrix);
@@ -3537,6 +3530,20 @@ void lcModel::RotateSelectedObjects(const lcVector3& Angles, bool Relative, bool
 
 	if (Angles[2] != 0.0f)
 		RotationMatrix = lcMul(lcMatrix33RotationZ(Angles[2] * LC_DTOR), RotationMatrix);
+
+	RotateSelectedObjects(RotationMatrix, Relative, RotatePivotPoint, Checkpoint, ModelHistoryEditMerge);
+}
+
+void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool Relative, bool RotatePivotPoint, bool Checkpoint, lcModelHistoryEditMerge ModelHistoryEditMerge)
+{
+	if (Checkpoint)
+	{
+		BeginHistorySequence();
+		BeginEditHistory(ModelHistoryEditMerge);
+	}
+
+	lcMatrix33 RotationMatrix = InputRotationMatrix;
+	bool Rotated = false;
 
 	if (RotatePivotPoint)
 	{
@@ -5161,6 +5168,18 @@ void lcModel::UpdateRotateTool(const lcVector3& Angles, bool AlternateButtonDrag
 {
 	const lcVector3 Delta = SnapRotation(Angles) - SnapRotation(mMouseToolDistance);
 	RotateSelectedObjects(Delta, true, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
+
+	mMouseToolDistance = Angles;
+	mMouseToolFirstMove = false;
+}
+
+void lcModel::UpdateRotateTool(const lcVector3& Axis, float Angle, bool AlternateButtonDrag)
+{
+	const lcVector3 Angles(Angle, 0.0f, 0.0f);
+	const float Delta = SnapRotation(Angles)[0] - SnapRotation(mMouseToolDistance)[0];
+
+	if (Delta != 0.0f)
+		RotateSelectedObjects(lcMatrix33FromAxisAngle(Axis, Delta * LC_DTOR), false, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
 
 	mMouseToolDistance = Angles;
 	mMouseToolFirstMove = false;

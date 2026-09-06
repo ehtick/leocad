@@ -979,7 +979,7 @@ void lcView::OnDraw()
 			mViewManipulator->DrawSelectMove(mTrackButton, mTrackTool, mTrackToolSection);
 		else if (GetCurrentTool() == lcTool::Move && mTrackButton != lcTrackButton::None)
 			mViewManipulator->DrawSelectMove(mTrackButton, mTrackTool, mTrackToolSection);
-		else if ((Tool == lcTool::Rotate || (Tool == lcTool::Select && mTrackButton != lcTrackButton::None && mTrackTool >= lcTrackTool::RotateX && mTrackTool <= lcTrackTool::RotateXYZ)) && ActiveModel->CanRotateSelection())
+		else if ((Tool == lcTool::Rotate || (Tool == lcTool::Select && mTrackButton != lcTrackButton::None && mTrackTool >= lcTrackTool::RotateX && mTrackTool <= lcTrackTool::RotateCamera)) && ActiveModel->CanRotateSelection())
 			mViewManipulator->DrawRotate(mTrackButton, mTrackTool);
 		else if ((mTrackTool == lcTrackTool::Select || mTrackTool == lcTrackTool::ZoomRegion) && mTrackButton != lcTrackButton::None)
 			DrawSelectZoomRegionOverlay();
@@ -1909,7 +1909,7 @@ void lcView::ZoomExtents()
 
 lcCursor lcView::GetCursor() const
 {
-	if (mTrackButton != lcTrackButton::None && mTrackTool != lcTrackTool::Paint)
+	if (mTrackButton != lcTrackButton::None && mTrackTool != lcTrackTool::Paint && GetCurrentTool() != lcTool::Rotate)
 		return lcCursor::Hidden;
 
 	if (mTrackTool == lcTrackTool::Select)
@@ -1942,7 +1942,8 @@ lcCursor lcView::GetCursor() const
 		lcCursor::Rotate,           // lcTrackTool::RotateY
 		lcCursor::Rotate,           // lcTrackTool::RotateZ
 		lcCursor::Rotate,           // lcTrackTool::RotateXY
-		lcCursor::Rotate,           // lcTrackTool::RotateXYZ
+		lcCursor::Default,          // lcTrackTool::RotateXYZ
+		lcCursor::Rotate,           // lcTrackTool::RotateCamera
 		lcCursor::Select,           // lcTrackTool::RotateTrainTrackRight
 		lcCursor::Select,           // lcTrackTool::RotateTrainTrackLeft
 		lcCursor::Select,           // lcTrackTool::InsertTrainTrack
@@ -2014,6 +2015,11 @@ void lcView::SetCursor(lcCursor CursorType)
 		mWidget->setCursor(Qt::BlankCursor);
 		mCursor = CursorType;
 	}
+	else if (CursorType == lcCursor::Default)
+	{
+		mWidget->unsetCursor();
+		mCursor = CursorType;
+	}
 	else if (CursorType >= lcCursor::First && CursorType < lcCursor::Count)
 	{
 		const lcCursorInfo& Cursor = Cursors[static_cast<int>(CursorType)];
@@ -2056,6 +2062,7 @@ lcTool lcView::GetCurrentTool() const
 		lcTool::Rotate,           // lcTrackTool::RotateZ
 		lcTool::Rotate,           // lcTrackTool::RotateXY
 		lcTool::Rotate,           // lcTrackTool::RotateXYZ
+		lcTool::Rotate,           // lcTrackTool::RotateCamera
 		lcTool::Rotate,           // lcTrackTool::RotateTrainTrackRight
 		lcTool::Rotate,           // lcTrackTool::RotateTrainTrackLeft
 		lcTool::Insert,           // lcTrackTool::InsertTrainTrack
@@ -2336,6 +2343,7 @@ void lcView::StartTracking(lcTrackButton TrackButton)
 	mTrackUpdated = false;
 	mMouseDownX = mMouseX;
 	mMouseDownY = mMouseY;
+	mCameraRotationAngle = 0.0f;
 	lcTool Tool = GetCurrentTool();
 	lcModel* ActiveModel = GetActiveModel();
 
@@ -2353,6 +2361,21 @@ void lcView::StartTracking(lcTrackButton TrackButton)
 		case lcTool::Move:
 		case lcTool::Rotate:
 			ActiveModel->BeginMouseTool(Tool, this);
+
+			if (mTrackTool == lcTrackTool::RotateCamera)
+			{
+				lcVector3 OverlayCenter;
+				lcMatrix33 RelativeRotation;
+				ActiveModel->GetMoveRotateTransform(OverlayCenter, RelativeRotation);
+
+				lcMatrix44 WorldMatrix = lcMatrix44(RelativeRotation, OverlayCenter);
+				if (ActiveModel != mModel)
+					WorldMatrix = lcMul(WorldMatrix, mActiveSubmodelTransform);
+
+				const lcVector3 ScreenCenter = ProjectPoint(WorldMatrix.GetTranslation());
+				mCameraRotationMouseAngle = atan2f((float)mMouseY - ScreenCenter[1], (float)mMouseX - ScreenCenter[0]);
+				mCameraRotationLastMouseAngle = mCameraRotationMouseAngle;
+			}
 			break;
 
 		case lcTool::Eraser:
@@ -2580,6 +2603,7 @@ void lcView::OnButtonDown(lcTrackButton TrackButton)
 	case lcTrackTool::RotateZ:
 	case lcTrackTool::RotateXY:
 	case lcTrackTool::RotateXYZ:
+	case lcTrackTool::RotateCamera:
 		if (ActiveModel->CanRotateSelection())
 			StartTracking(TrackButton);
 		break;
@@ -3078,6 +3102,35 @@ void lcView::OnMouseMove()
 			lcVector3 ScreenZ = lcNormalize(mCamera->mTargetPosition - mCamera->mPosition);
 
 			ActiveModel->UpdateRotateTool(36.0f * (float)(mMouseY - mMouseDownY) * MouseSensitivity * ScreenZ, mTrackButton != lcTrackButton::Left);
+		}
+		break;
+
+	case lcTrackTool::RotateCamera:
+		{
+			lcVector3 OverlayCenter;
+			lcMatrix33 RelativeRotation;
+			ActiveModel->GetMoveRotateTransform(OverlayCenter, RelativeRotation);
+
+			lcMatrix44 WorldMatrix = lcMatrix44(RelativeRotation, OverlayCenter);
+			if (ActiveModel != mModel)
+				WorldMatrix = lcMul(WorldMatrix, mActiveSubmodelTransform);
+
+			const lcVector3 ScreenCenter = ProjectPoint(WorldMatrix.GetTranslation());
+			const float MouseAngle = atan2f((float)mMouseY - ScreenCenter[1], (float)mMouseX - ScreenCenter[0]);
+			// Unwrap each clockwise-positive pointer delta so full turns do not flip
+			// when the pointer crosses the opposite side of the ring.
+			float Angle = mCameraRotationLastMouseAngle - MouseAngle;
+
+			if (Angle > LC_PI)
+				Angle -= LC_2PI;
+			else if (Angle < -LC_PI)
+				Angle += LC_2PI;
+
+			mCameraRotationAngle += Angle;
+			mCameraRotationLastMouseAngle = MouseAngle;
+
+			const lcVector3 CameraAxis = lcNormalize(mCamera->mTargetPosition - mCamera->mPosition);
+			ActiveModel->UpdateRotateTool(CameraAxis, mCameraRotationAngle * LC_RTOD, mTrackButton != lcTrackButton::Left);
 		}
 		break;
 

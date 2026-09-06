@@ -653,6 +653,11 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 				Angle = MouseToolDistance[2];
 				Rotation = lcVector4(90.0f, 0.0f, -1.0f, 0.0f);
 				break;
+			case lcTrackTool::RotateCamera:
+				Context->SetColor(0.9f, 0.9f, 0.9f, 0.3f);
+				Angle = MouseToolDistance[0];
+				Rotation = lcVector4(0.0f, 0.0f, 0.0f, 1.0f);
+				break;
 			default:
 				Rotation = lcVector4(0.0f, 0.0f, 0.0f, 1.0f);
 				Angle = 0.0f;
@@ -671,7 +676,14 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 
 		if (fabsf(Angle) >= fabsf(Step))
 		{
-			lcMatrix44 RotatedWorldMatrix = lcMul(lcMatrix44FromAxisAngle(lcVector3(Rotation[1], Rotation[2], Rotation[3]), Rotation[0] * LC_DTOR), WorldMatrix);
+			lcMatrix44 RotatedWorldMatrix;
+			if (TrackTool == lcTrackTool::RotateCamera)
+			{
+				RotatedWorldMatrix = lcMatrix44AffineInverse(Camera->mWorldView);
+				RotatedWorldMatrix.SetTranslation(WorldMatrix.GetTranslation());
+			}
+			else
+				RotatedWorldMatrix = lcMul(lcMatrix44FromAxisAngle(lcVector3(Rotation[1], Rotation[2], Rotation[3]), Rotation[0] * LC_DTOR), WorldMatrix);
 
 			Context->SetWorldMatrix(RotatedWorldMatrix);
 
@@ -694,10 +706,14 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 
 			do
 			{
-				float x = cosf((Step * i - StartAngle) * LC_DTOR) * OverlayRotateRadius * OverlayScale;
-				float y = sinf((Step * i - StartAngle) * LC_DTOR) * OverlayRotateRadius * OverlayScale;
+				float VertexAngle = Step * i - StartAngle;
+				if (TrackTool == lcTrackTool::RotateCamera)
+					VertexAngle = mView->GetCameraRotationStartAngle() * LC_RTOD - Step * i;
 
-				Verts[NumVerts++] = lcVector3(0.0f, x, y);
+				float x = cosf(VertexAngle * LC_DTOR) * OverlayRotateRadius * OverlayScale;
+				float y = sinf(VertexAngle * LC_DTOR) * OverlayRotateRadius * OverlayScale;
+
+				Verts[NumVerts++] = TrackTool == lcTrackTool::RotateCamera ? lcVector3(x, y, 0.0f) : lcVector3(0.0f, x, y);
 
 				if (NumVerts == 33)
 				{
@@ -741,7 +757,10 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 			Verts[NumVerts++] = lcMul31(lcVector3(Sin * (OverlayRotateCameraRadius * OverlayScale + HalfWidth), Cos * (OverlayRotateCameraRadius * OverlayScale + HalfWidth), 0.0f), Mat);
 		}
 
-		Context->SetColor(200.0f / 255.0f, 200.0f / 255.0f, 200.0f / 255.0f, 1.0f);
+		if (TrackTool == lcTrackTool::RotateCamera)
+			Context->SetColor(230.0f / 255.0f, 230.0f / 255.0f, 230.0f / 255.0f, 1.0f);
+		else
+			Context->SetColor(200.0f / 255.0f, 200.0f / 255.0f, 200.0f / 255.0f, 1.0f);
 		Context->SetWorldMatrix(lcMatrix44Identity());
 
 		Context->SetVertexBufferPointer(Verts);
@@ -994,6 +1013,9 @@ bool lcViewManipulator::IsTrackToolAllowed(lcTrackTool TrackTool, quint32 Allowe
 			return (AllowedTransforms & (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y)) == (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y);
 
 		case lcTrackTool::RotateXYZ:
+			return (AllowedTransforms & (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z)) == (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z);
+
+		case lcTrackTool::RotateCamera:
 			return (AllowedTransforms & (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z)) == (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z);
 
 		case lcTrackTool::RotateTrainTrackRight:
@@ -1354,9 +1376,20 @@ lcTrackTool lcViewManipulator::UpdateRotate()
 		}
 	}
 
-	if (lcSphereRayIntersection(OverlayCenter, OverlayRotateCameraRadius * OverlayScale, StartEnd[0], StartEnd[1], Intersection))
+	// Test the camera-facing ring itself, rather than its bounding sphere, so the
+	// inner gizmo does not accidentally activate this mode.
+	const lcCamera* Camera = mView->GetCamera();
+	const lcVector3 CameraAxis = lcNormalize(Camera->mTargetPosition - Camera->mPosition);
+	const lcVector4 CameraPlane(CameraAxis, -lcDot(CameraAxis, OverlayCenter));
+
+	if (lcLineSegmentPlaneIntersection(&Intersection, StartEnd[0], StartEnd[1], CameraPlane))
 	{
-		// todo: Rotate around camera axis
+		const float RingRadius = OverlayRotateCameraRadius * OverlayScale;
+		const float HalfWidth = OverlayScale * 0.075f;
+		const float Distance = lcLength(Intersection - OverlayCenter);
+
+		if (fabsf(Distance - RingRadius) <= HalfWidth)
+			return lcTrackTool::RotateCamera;
 	}
 
 	return lcTrackTool::RotateXYZ;
