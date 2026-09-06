@@ -1941,7 +1941,6 @@ lcCursor lcView::GetCursor() const
 		lcCursor::Rotate,           // lcTrackTool::RotateX
 		lcCursor::Rotate,           // lcTrackTool::RotateY
 		lcCursor::Rotate,           // lcTrackTool::RotateZ
-		lcCursor::Rotate,           // lcTrackTool::RotateXY
 		lcCursor::Default,          // lcTrackTool::RotateXYZ
 		lcCursor::Rotate,           // lcTrackTool::RotateCamera
 		lcCursor::Select,           // lcTrackTool::RotateTrainTrackRight
@@ -2060,7 +2059,6 @@ lcTool lcView::GetCurrentTool() const
 		lcTool::Rotate,           // lcTrackTool::RotateX
 		lcTool::Rotate,           // lcTrackTool::RotateY
 		lcTool::Rotate,           // lcTrackTool::RotateZ
-		lcTool::Rotate,           // lcTrackTool::RotateXY
 		lcTool::Rotate,           // lcTrackTool::RotateXYZ
 		lcTool::Rotate,           // lcTrackTool::RotateCamera
 		lcTool::Rotate,           // lcTrackTool::RotateTrainTrackRight
@@ -2601,7 +2599,6 @@ void lcView::OnButtonDown(lcTrackButton TrackButton)
 	case lcTrackTool::RotateX:
 	case lcTrackTool::RotateY:
 	case lcTrackTool::RotateZ:
-	case lcTrackTool::RotateXY:
 	case lcTrackTool::RotateXYZ:
 	case lcTrackTool::RotateCamera:
 		if (ActiveModel->CanRotateSelection())
@@ -3081,18 +3078,6 @@ void lcView::OnMouseMove()
 			MoveX *= 36.0f * (float)(mMouseX - mMouseDownX) * MouseSensitivity;
 			MoveY *= 36.0f * (float)(mMouseY - mMouseDownY) * MouseSensitivity;
 
-			ActiveModel->UpdateRotateTool(MoveX + MoveY, mTrackButton != lcTrackButton::Left);
-		}
-		break;
-
-	case lcTrackTool::RotateXY:
-		{
-			lcVector3 ScreenZ = lcNormalize(mCamera->mTargetPosition - mCamera->mPosition);
-			lcVector3 ScreenX = lcCross(ScreenZ, mCamera->mUpVector);
-			lcVector3 ScreenY = mCamera->mUpVector;
-
-			lcVector3 MoveX = 36.0f * (float)(mMouseX - mMouseDownX) * MouseSensitivity * ScreenX;
-			lcVector3 MoveY = 36.0f * (float)(mMouseY - mMouseDownY) * MouseSensitivity * ScreenY;
 			ActiveModel->UpdateRotateTool(MoveX + MoveY, mTrackButton != lcTrackButton::Left);
 		}
 		break;

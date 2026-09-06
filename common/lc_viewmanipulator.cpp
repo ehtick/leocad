@@ -1009,9 +1009,6 @@ bool lcViewManipulator::IsTrackToolAllowed(lcTrackTool TrackTool, quint32 Allowe
 		case lcTrackTool::RotateZ:
 			return AllowedTransforms & LC_OBJECT_TRANSFORM_ROTATE_Z;
 
-		case lcTrackTool::RotateXY:
-			return (AllowedTransforms & (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y)) == (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y);
-
 		case lcTrackTool::RotateXYZ:
 			return (AllowedTransforms & (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z)) == (LC_OBJECT_TRANSFORM_ROTATE_X | LC_OBJECT_TRANSFORM_ROTATE_Y | LC_OBJECT_TRANSFORM_ROTATE_Z);
 

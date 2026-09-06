@@ -71,7 +71,6 @@ enum class lcTrackTool
 	RotateX,
 	RotateY,
 	RotateZ,
-	RotateXY,
 	RotateXYZ,
 	RotateCamera,
 	RotateTrainTrackRight,
