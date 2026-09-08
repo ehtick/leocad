@@ -44,7 +44,7 @@ for:
     - windeployqt appdir\leocad.exe
     - copy tools\setup\leocad.nsi .
     - copy tools\setup\setup.ico .
-    - 'copy "%VCINSTALLDIR%Redist\MSVC\v143\vc_redist.x64.exe" appdir\vcredist_x64.exe'
+    - 'copy "%VCINSTALLDIR%Redist\MSVC\v143\vc_redist.x64.exe" appdir\vc_redist.x64.exe'
     - '"C:\Program Files (x86)\NSIS\makensis.exe" /V4 /DX64 "/XOutFile LeoCAD-Windows-%VERSION%.exe" leocad.nsi'
     - set TRAVIS_TAG=%APPVEYOR_REPO_TAG_NAME%
     - set TRAVIS_REPO_SLUG=%APPVEYOR_REPO_NAME%
