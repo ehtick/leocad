@@ -2360,18 +2360,21 @@ void lcView::StartTracking(lcTrackButton TrackButton)
 		case lcTool::Rotate:
 			ActiveModel->BeginMouseTool(Tool, this);
 
-			if (mTrackTool == lcTrackTool::RotateCamera)
+			if (mTrackTool == lcTrackTool::RotateX || mTrackTool == lcTrackTool::RotateY || mTrackTool == lcTrackTool::RotateZ || mTrackTool == lcTrackTool::RotateCamera)
 			{
 				lcVector3 OverlayCenter;
 				lcMatrix33 RelativeRotation;
-				ActiveModel->GetMoveRotateTransform(OverlayCenter, RelativeRotation);
+			    
+			    ActiveModel->GetMoveRotateTransform(OverlayCenter, RelativeRotation);
 
 				lcMatrix44 WorldMatrix = lcMatrix44(RelativeRotation, OverlayCenter);
-				if (ActiveModel != mModel)
+			    
+			    if (ActiveModel != mModel)
 					WorldMatrix = lcMul(WorldMatrix, mActiveSubmodelTransform);
 
 				const lcVector3 ScreenCenter = ProjectPoint(WorldMatrix.GetTranslation());
-				mCameraRotationMouseAngle = atan2f((float)mMouseY - ScreenCenter[1], (float)mMouseX - ScreenCenter[0]);
+			    
+			    mCameraRotationMouseAngle = atan2f((float)mMouseY - ScreenCenter[1], (float)mMouseX - ScreenCenter[0]);
 				mCameraRotationLastMouseAngle = mCameraRotationMouseAngle;
 			}
 			break;
@@ -3031,54 +3034,50 @@ void lcView::OnMouseMove()
 	case lcTrackTool::RotateY:
 	case lcTrackTool::RotateZ:
 		{
-			lcVector3 ScreenX = lcNormalize(lcCross(mCamera->mTargetPosition - mCamera->mPosition, mCamera->mUpVector));
-			lcVector3 ScreenY = mCamera->mUpVector;
-			lcVector3 Dir1;
+			lcVector3 OverlayCenter;
+			lcMatrix33 RelativeRotation;
+			ActiveModel->GetMoveRotateTransform(OverlayCenter, RelativeRotation);
+
+			lcMatrix44 WorldMatrix = lcMatrix44(RelativeRotation, OverlayCenter);
+			if (ActiveModel != mModel)
+				WorldMatrix = lcMul(WorldMatrix, mActiveSubmodelTransform);
+
+			const lcVector3 ScreenCenter = ProjectPoint(WorldMatrix.GetTranslation());
+			const float MouseAngle = atan2f((float)mMouseY - ScreenCenter[1], (float)mMouseX - ScreenCenter[0]);
+			float Angle = mCameraRotationLastMouseAngle - MouseAngle;
+
+			if (Angle > LC_PI)
+				Angle -= LC_2PI;
+			else if (Angle < -LC_PI)
+				Angle += LC_2PI;
+
+			mCameraRotationAngle += Angle;
+			mCameraRotationLastMouseAngle = MouseAngle;
+
+			lcVector3 Axis;
 
 			switch (mTrackTool)
 			{
 			case lcTrackTool::RotateX:
-				Dir1 = lcVector3(1.0f, 0.0f, 0.0f);
+				Axis = lcVector3(1.0f, 0.0f, 0.0f);
 				break;
 			case lcTrackTool::RotateY:
-				Dir1 = lcVector3(0.0f, 1.0f, 0.0f);
+				Axis = lcVector3(0.0f, 1.0f, 0.0f);
 				break;
 			case lcTrackTool::RotateZ:
-				Dir1 = lcVector3(0.0f, 0.0f, 1.0f);
+				Axis = lcVector3(0.0f, 0.0f, 1.0f);
 				break;
 			default:
-				Dir1 = lcVector3(0.0f, 0.0f, 1.0f);
+				Axis = lcVector3(0.0f, 0.0f, 1.0f);
 				break;
 			}
 
-			lcVector3 MoveX, MoveY;
-
-			float dx1 = lcDot(ScreenX, Dir1);
-			float dy1 = lcDot(ScreenY, Dir1);
-
-			if (fabsf(dx1) > fabsf(dy1))
-			{
-				if (dx1 >= 0.0f)
-					MoveX = Dir1;
-				else
-					MoveX = -Dir1;
-
-				MoveY = lcVector3(0, 0, 0);
-			}
-			else
-			{
-				MoveX = lcVector3(0, 0, 0);
-
-				if (dy1 > 0.0f)
-					MoveY = Dir1;
-				else
-					MoveY = -Dir1;
-			}
-
-			MoveX *= 36.0f * (float)(mMouseX - mMouseDownX) * MouseSensitivity;
-			MoveY *= 36.0f * (float)(mMouseY - mMouseDownY) * MouseSensitivity;
-
-			ActiveModel->UpdateRotateTool(MoveX + MoveY, mTrackButton != lcTrackButton::Left);
+			// The rings rotate with the current gizmo frame, so derive the displayed
+			// axis from the current transform before determining its screen direction.
+			const lcVector3 DisplayAxis = lcNormalize(lcMul30(Axis, WorldMatrix));
+			const lcVector3 CameraAxis = lcNormalize(mCamera->mTargetPosition - mCamera->mPosition);
+			const float AxisDirection = lcDot(DisplayAxis, CameraAxis) < 0.0f ? -1.0f : 1.0f;
+			ActiveModel->UpdateRotateTool(Axis, AxisDirection * mCameraRotationAngle * LC_RTOD, mTrackButton != lcTrackButton::Left, true);
 		}
 		break;
 
@@ -3115,7 +3114,7 @@ void lcView::OnMouseMove()
 			mCameraRotationLastMouseAngle = MouseAngle;
 
 			const lcVector3 CameraAxis = lcNormalize(mCamera->mTargetPosition - mCamera->mPosition);
-			ActiveModel->UpdateRotateTool(CameraAxis, mCameraRotationAngle * LC_RTOD, mTrackButton != lcTrackButton::Left);
+			ActiveModel->UpdateRotateTool(CameraAxis, mCameraRotationAngle * LC_RTOD, mTrackButton != lcTrackButton::Left, false);
 		}
 		break;
 

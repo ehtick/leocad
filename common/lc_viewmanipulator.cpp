@@ -698,10 +698,30 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 		float StartAngle;
 		int i = 0;
 
-		if (Step < 0)
-			StartAngle = -Angle;
+		if (TrackTool == lcTrackTool::RotateCamera)
+			StartAngle = 0.0f;
 		else
-			StartAngle = Angle;
+		{
+			lcVector3 MouseDownRay[2] =
+			{
+				lcVector3((float)mView->GetMouseDownX(), (float)mView->GetMouseDownY(), 0.0f),
+				lcVector3((float)mView->GetMouseDownX(), (float)mView->GetMouseDownY(), 1.0f)
+			};
+			mView->UnprojectPoints(MouseDownRay, 2);
+
+			const lcVector3 Center = RotatedWorldMatrix.GetTranslation();
+			const lcVector3 Normal = lcNormalize(lcMul30(lcVector3(1.0f, 0.0f, 0.0f), RotatedWorldMatrix));
+			const lcVector4 Plane(Normal, -lcDot(Normal, Center));
+			lcVector3 Intersection;
+
+			if (lcLineSegmentPlaneIntersection(&Intersection, MouseDownRay[0], MouseDownRay[1], Plane))
+			{
+				const lcVector3 LocalPoint = lcMul(Intersection - Center, lcMatrix33AffineInverse(lcMatrix33(RotatedWorldMatrix)));
+				StartAngle = -atan2f(LocalPoint[2], LocalPoint[1]) * LC_RTOD;
+			}
+			else
+				StartAngle = 0.0f;
+		}
 		
 		for (;;)
 		{
@@ -910,9 +930,6 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 	// Draw tangent arrow and text.
 	if (TrackButton != lcTrackButton::None && ((TrackTool == lcTrackTool::RotateX) || (TrackTool == lcTrackTool::RotateY) || (TrackTool == lcTrackTool::RotateZ) || (TrackTool == lcTrackTool::RotateCamera)))
 	{
-		const float OverlayRotateArrowSize = 1.5f;
-		const float OverlayRotateArrowCapSize = 0.25f;
-		const bool DrawTangent = (TrackTool != lcTrackTool::RotateCamera);
 		lcVector4 Rotation;
 		float Angle;
 
@@ -945,30 +962,6 @@ void lcViewManipulator::DrawRotate(lcTrackButton TrackButton, lcTrackTool TrackT
 
 		Context->SetColor(0.8f, 0.8f, 0.0f, 1.0f);
 		
-		// Draw tangent arrow.
-		if (HasAngle && DrawTangent)
-		{
-			float StartY = OverlayScale * OverlayRotateRadius;
-			float EndZ = (Angle > 0.0f) ? OverlayScale * OverlayRotateArrowSize : -OverlayScale * OverlayRotateArrowSize;
-			float TipZ = (Angle > 0.0f) ? -OverlayScale * OverlayRotateArrowCapSize : OverlayScale * OverlayRotateArrowCapSize;
-
-			lcVector3 Verts[6];
-
-			Verts[0] = lcVector3(0.0f, StartY, 0.0f);
-			Verts[1] = lcVector3(0.0f, StartY, EndZ);
-
-			Verts[2] = lcVector3(0.0f, StartY, EndZ);
-			Verts[3] = lcVector3(0.0f, StartY + OverlayScale * OverlayRotateArrowCapSize, EndZ + TipZ);
-
-			Verts[4] = lcVector3(0.0f, StartY, EndZ);
-			Verts[5] = lcVector3(0.0f, StartY - OverlayScale * OverlayRotateArrowCapSize, EndZ + TipZ);
-
-			Context->SetVertexBufferPointer(Verts);
-			Context->SetVertexFormatPosition(3);
-
-			Context->DrawPrimitives(GL_LINES, 0, 6);
-		}
-
 		// Draw text.
 		lcVector3 ScreenPos = mView->ProjectPoint(WorldMatrix.GetTranslation());
 

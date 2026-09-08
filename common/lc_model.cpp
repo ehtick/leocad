@@ -5173,13 +5173,13 @@ void lcModel::UpdateRotateTool(const lcVector3& Angles, bool AlternateButtonDrag
 	mMouseToolFirstMove = false;
 }
 
-void lcModel::UpdateRotateTool(const lcVector3& Axis, float Angle, bool AlternateButtonDrag)
+void lcModel::UpdateRotateTool(const lcVector3& Axis, float Angle, bool AlternateButtonDrag, bool Relative)
 {
-	const lcVector3 Angles(Angle, 0.0f, 0.0f);
+	const lcVector3 Angles(Angle, Angle, Angle);
 	const float Delta = SnapRotation(Angles)[0] - SnapRotation(mMouseToolDistance)[0];
 
 	if (Delta != 0.0f)
-		RotateSelectedObjects(lcMatrix33FromAxisAngle(Axis, Delta * LC_DTOR), false, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
+		RotateSelectedObjects(lcMatrix33FromAxisAngle(Axis, Delta * LC_DTOR), Relative, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
 
 	mMouseToolDistance = Angles;
 	mMouseToolFirstMove = false;

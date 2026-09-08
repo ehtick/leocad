@@ -357,7 +357,7 @@ public:
 	void UpdateMoveTool(const lcVector3& Distance, bool AllowRelative, bool AlternateButtonDrag);
 	void UpdateFreeMoveTool(lcPiece* MousePiece, const lcMatrix44& StartTransform, const lcMatrix44& NewTransform, bool IsConnection, bool AlternateButtonDrag);
 	void UpdateRotateTool(const lcVector3& Angles, bool AlternateButtonDrag);
-	void UpdateRotateTool(const lcVector3& Axis, float Angle, bool AlternateButtonDrag);
+	void UpdateRotateTool(const lcVector3& Axis, float Angle, bool AlternateButtonDrag, bool Relative);
 	void UpdateScaleTool(const float Scale);
 	void EraserToolClicked(lcObject* Object);
 	void PaintToolClicked(lcObject* Object);

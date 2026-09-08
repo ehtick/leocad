@@ -189,6 +189,16 @@ public:
 		return mMouseY;
 	}
 
+	int GetMouseDownX() const
+	{
+		return mMouseDownX;
+	}
+
+	int GetMouseDownY() const
+	{
+		return mMouseDownY;
+	}
+
 	float GetCameraRotationStartAngle() const
 	{
 		return mCameraRotationMouseAngle;
