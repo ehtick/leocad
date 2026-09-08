@@ -321,7 +321,7 @@ void lcPropertiesWidget::ChangeFloatValue(lcObjectPropertyId PropertyId, float V
 
 		lcVector3 Distance = Position - Center;
 
-		Model->MoveSelectedObjects(Distance, false, false, true, true, lcModelHistoryEditMerge::PropertiesMove);
+		Model->MoveSelectedObjects(Distance, lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::PropertiesMove);
 	}
 	else if (PropertyId == lcObjectPropertyId::ObjectRotationX || PropertyId == lcObjectPropertyId::ObjectRotationY || PropertyId == lcObjectPropertyId::ObjectRotationZ)
 	{
@@ -343,7 +343,7 @@ void lcPropertiesWidget::ChangeFloatValue(lcObjectPropertyId PropertyId, float V
 		else if (PropertyId == lcObjectPropertyId::ObjectRotationZ)
 			Rotation[2] = Value;
 
-		Model->RotateSelectedObjects(Rotation - InitialRotation, true, false, true, lcModelHistoryEditMerge::PropertiesRotate);
+		Model->RotateSelectedObjects(Rotation - InitialRotation, lcModelTransformFlag::Relative | lcModelTransformFlag::Checkpoint, lcModelHistoryEditMerge::PropertiesRotate);
 
 		mLastRotation = Rotation;
 	}
@@ -376,7 +376,7 @@ void lcPropertiesWidget::ChangeFloatValue(lcObjectPropertyId PropertyId, float V
 
 		lcVector3 Distance = End - Start;
 
-		Model->MoveSelectedObjects(Distance, false, false, true, true, lcModelHistoryEditMerge::PropertiesMove);
+		Model->MoveSelectedObjects(Distance, lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::PropertiesMove);
 
 		if (Camera)
 		{
@@ -413,7 +413,7 @@ void lcPropertiesWidget::ChangeFloatValue(lcObjectPropertyId PropertyId, float V
 
 		lcVector3 Distance = End - Start;
 
-		Model->MoveSelectedObjects(Distance, false, false, true, true, lcModelHistoryEditMerge::PropertiesMove);
+		Model->MoveSelectedObjects(Distance, lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::PropertiesMove);
 
 		if (Camera)
 		{
@@ -450,7 +450,7 @@ void lcPropertiesWidget::ChangeFloatValue(lcObjectPropertyId PropertyId, float V
 
 		lcVector3 Distance = End - Start;
 
-		Model->MoveSelectedObjects(Distance, false, false, true, true, lcModelHistoryEditMerge::PropertiesMove);
+		Model->MoveSelectedObjects(Distance, lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::PropertiesMove);
 
 		if (Camera)
 		{

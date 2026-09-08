@@ -3421,9 +3421,9 @@ bool lcModel::RemoveSelectedObjects()
 	return RemovedPiece || RemovedCamera || RemovedLight;
 }
 
-void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector3& ObjectDistance, bool AllowRelative, bool AlternateButtonDrag, bool Checkpoint, bool FirstMove, lcModelHistoryEditMerge ModelHistoryEditMerge)
+void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector3& ObjectDistance, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge)
 {
-	if (Checkpoint)
+	if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 	{
 		BeginHistorySequence();
 		BeginEditHistory(ModelHistoryEditMerge);
@@ -3432,7 +3432,7 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 	bool Moved = false;
 	lcMatrix33 RelativeRotation;
 
-	if (AllowRelative)
+	if (Flags.testFlag(lcModelTransformFlag::Relative))
 		RelativeRotation = GetRelativeRotation();
 	else
 		RelativeRotation = lcMatrix33Identity();
@@ -3441,7 +3441,7 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 	{
 		lcVector3 TransformedPieceDistance = lcMul(PieceDistance, RelativeRotation);
 
-		if (AlternateButtonDrag)
+		if (Flags.testFlag(lcModelTransformFlag::RotatePivotPoint))
 		{
 			for (const std::unique_ptr<lcPiece>& Piece : mPieces)
 			{
@@ -3470,7 +3470,7 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 		}
 	}
 
-	if (ObjectDistance.LengthSquared() >= 0.001f && !AlternateButtonDrag)
+	if (ObjectDistance.LengthSquared() >= 0.001f && !Flags.testFlag(lcModelTransformFlag::RotatePivotPoint))
 	{
 		const lcVector3 TransformedObjectDistance = lcMul(ObjectDistance, RelativeRotation);
 
@@ -3488,7 +3488,7 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 		{
 			if (Light->IsSelected())
 			{
-				Light->MoveSelected(mCurrentStep, gMainWindow->GetAddKeys(), TransformedObjectDistance, FirstMove);
+				Light->MoveSelected(mCurrentStep, gMainWindow->GetAddKeys(), TransformedObjectDistance, Flags.testFlag(lcModelTransformFlag::FirstMove));
 				Light->UpdatePosition(mCurrentStep);
 				Moved = true;
 			}
@@ -3497,13 +3497,13 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 
 	if (!Moved)
 	{
-		if (Checkpoint)
+		if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 			DiscardHistorySequence();
 
 		return;
 	}
 
-	if (Checkpoint)
+	if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 	{
 		EndEditHistory();
 		EndHistorySequence(tr("Move"));
@@ -3515,7 +3515,7 @@ void lcModel::MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector
 	gMainWindow->UpdateSelectedObjects(false);
 }
 
-void lcModel::RotateSelectedObjects(const lcVector3& Angles, bool Relative, bool RotatePivotPoint, bool Checkpoint, lcModelHistoryEditMerge ModelHistoryEditMerge)
+void lcModel::RotateSelectedObjects(const lcVector3& Angles, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge)
 {
 	if (Angles.LengthSquared() < 0.001f)
 		return;
@@ -3531,12 +3531,12 @@ void lcModel::RotateSelectedObjects(const lcVector3& Angles, bool Relative, bool
 	if (Angles[2] != 0.0f)
 		RotationMatrix = lcMul(lcMatrix33RotationZ(Angles[2] * LC_DTOR), RotationMatrix);
 
-	RotateSelectedObjects(RotationMatrix, Relative, RotatePivotPoint, Checkpoint, ModelHistoryEditMerge);
+	RotateSelectedObjects(RotationMatrix, Flags, ModelHistoryEditMerge);
 }
 
-void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool Relative, bool RotatePivotPoint, bool Checkpoint, lcModelHistoryEditMerge ModelHistoryEditMerge)
+void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge)
 {
-	if (Checkpoint)
+	if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 	{
 		BeginHistorySequence();
 		BeginEditHistory(ModelHistoryEditMerge);
@@ -3545,7 +3545,7 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 	lcMatrix33 RotationMatrix = InputRotationMatrix;
 	bool Rotated = false;
 
-	if (RotatePivotPoint)
+	if (Flags.testFlag(lcModelTransformFlag::RotatePivotPoint))
 	{
 		lcObject* Focus = GetFocusObject();
 
@@ -3557,11 +3557,13 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 	}
 	else
 	{
-		int Flags;
+		int SelectionFlags;
 		std::vector<lcObject*> Selection;
 		lcObject* Focus;
 
-		GetSelectionInformation(&Flags, Selection, &Focus);
+		GetSelectionInformation(&SelectionFlags, Selection, &Focus);
+		Q_UNUSED(SelectionFlags);
+		Q_UNUSED(Focus);
 
 		if (!gMainWindow->GetSeparateTransform())
 		{
@@ -3572,7 +3574,7 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 
 			lcMatrix33 WorldToFocusMatrix;
 
-			if (Relative)
+			if (Flags.testFlag(lcModelTransformFlag::Relative))
 			{
 				WorldToFocusMatrix = lcMatrix33AffineInverse(RelativeRotation);
 				RotationMatrix = lcMul(RotationMatrix, RelativeRotation);
@@ -3620,7 +3622,7 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 					lcMatrix33 WorldToFocusMatrix;
 					lcMatrix33 RelativeRotationMatrix;
 
-					if (Relative)
+					if (Flags.testFlag(lcModelTransformFlag::Relative))
 					{
 						const lcMatrix33 RelativeRotation = Piece->GetRelativeRotation();
 						WorldToFocusMatrix = lcMatrix33AffineInverse(RelativeRotation);
@@ -3644,7 +3646,7 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 					lcMatrix33 WorldToFocusMatrix;
 					lcMatrix33 RelativeRotationMatrix;
 
-					if (Relative)
+					if (Flags.testFlag(lcModelTransformFlag::Relative))
 					{
 						const lcMatrix33 RelativeRotation = Camera->GetRelativeRotation();
 						WorldToFocusMatrix = lcMatrix33AffineInverse(RelativeRotation);
@@ -3668,7 +3670,7 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 					lcMatrix33 WorldToFocusMatrix;
 					lcMatrix33 RelativeRotationMatrix;
 
-					if (Relative)
+					if (Flags.testFlag(lcModelTransformFlag::Relative))
 					{
 						const lcMatrix33 RelativeRotation = Light->GetRelativeRotation();
 						WorldToFocusMatrix = lcMatrix33AffineInverse(RelativeRotation);
@@ -3690,13 +3692,13 @@ void lcModel::RotateSelectedObjects(const lcMatrix33& InputRotationMatrix, bool 
 
 	if (!Rotated)
 	{
-		if (Checkpoint)
+		if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 			DiscardHistorySequence();
 
 		return;
 	}
 
-	if (Checkpoint)
+	if (Flags.testFlag(lcModelTransformFlag::Checkpoint))
 	{
 		EndEditHistory();
 		EndHistorySequence(tr("Rotate"));
@@ -3732,19 +3734,19 @@ void lcModel::TransformSelectedObjects(lcTransformType TransformType, const lcVe
 	switch (TransformType)
 	{
 	case lcTransformType::AbsoluteTranslation:
-		MoveSelectedObjects(Transform, false, false, true, true, lcModelHistoryEditMerge::None);
+		MoveSelectedObjects(Transform, lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::None);
 		break;
 
 	case lcTransformType::RelativeTranslation:
-		MoveSelectedObjects(Transform, true, false, true, true, lcModelHistoryEditMerge::None);
+		MoveSelectedObjects(Transform, lcModelTransformFlag::Relative | lcModelTransformFlag::Checkpoint | lcModelTransformFlag::FirstMove, lcModelHistoryEditMerge::None);
 		break;
 
 	case lcTransformType::AbsoluteRotation:
-		RotateSelectedObjects(Transform, false, false, true, lcModelHistoryEditMerge::None);
+		RotateSelectedObjects(Transform, lcModelTransformFlag::Checkpoint, lcModelHistoryEditMerge::None);
 		break;
 
 	case lcTransformType::RelativeRotation:
-		RotateSelectedObjects(Transform, true, false, true, lcModelHistoryEditMerge::None);
+		RotateSelectedObjects(Transform, lcModelTransformFlag::Relative | lcModelTransformFlag::Checkpoint, lcModelHistoryEditMerge::None);
 		break;
 
 	case lcTransformType::Count:
@@ -5084,7 +5086,8 @@ void lcModel::UpdateMoveTool(const lcVector3& Distance, bool AllowRelative, bool
 	const lcVector3 PieceDistance = SnapPosition(Distance) - SnapPosition(mMouseToolDistance);
 	const lcVector3 ObjectDistance = Distance - mMouseToolDistance;
 
-	MoveSelectedObjects(PieceDistance, ObjectDistance, AllowRelative, AlternateButtonDrag, false, mMouseToolFirstMove, lcModelHistoryEditMerge::None);
+	lcModelTransformFlags Flags = (AllowRelative ? lcModelTransformFlag::Relative : lcModelTransformFlag::None) | (AlternateButtonDrag ? lcModelTransformFlag::RotatePivotPoint : lcModelTransformFlag::None) | (mMouseToolFirstMove ? lcModelTransformFlag::FirstMove : lcModelTransformFlag::None);
+	MoveSelectedObjects(PieceDistance, ObjectDistance, Flags, lcModelHistoryEditMerge::None);
 
 	mMouseToolDistance = Distance;
 	mMouseToolFirstMove = false;
@@ -5167,7 +5170,7 @@ void lcModel::UpdateFreeMoveTool(lcPiece* MousePiece, const lcMatrix44& StartTra
 void lcModel::UpdateRotateTool(const lcVector3& Angles, bool AlternateButtonDrag)
 {
 	const lcVector3 Delta = SnapRotation(Angles) - SnapRotation(mMouseToolDistance);
-	RotateSelectedObjects(Delta, true, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
+	RotateSelectedObjects(Delta, lcModelTransformFlag::Relative | (AlternateButtonDrag ? lcModelTransformFlag::RotatePivotPoint : lcModelTransformFlag::None), lcModelHistoryEditMerge::None);
 
 	mMouseToolDistance = Angles;
 	mMouseToolFirstMove = false;
@@ -5179,7 +5182,7 @@ void lcModel::UpdateRotateTool(const lcVector3& Axis, float Angle, bool Alternat
 	const float Delta = SnapRotation(Angles)[0] - SnapRotation(mMouseToolDistance)[0];
 
 	if (Delta != 0.0f)
-		RotateSelectedObjects(lcMatrix33FromAxisAngle(Axis, Delta * LC_DTOR), Relative, AlternateButtonDrag, false, lcModelHistoryEditMerge::None);
+		RotateSelectedObjects(lcMatrix33FromAxisAngle(Axis, Delta * LC_DTOR), (Relative ? lcModelTransformFlag::Relative : lcModelTransformFlag::None) | (AlternateButtonDrag ? lcModelTransformFlag::RotatePivotPoint : lcModelTransformFlag::None), lcModelHistoryEditMerge::None);
 
 	mMouseToolDistance = Angles;
 	mMouseToolFirstMove = false;

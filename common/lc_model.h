@@ -48,6 +48,18 @@ enum class lcTransformType
 	Count
 };
 
+enum class lcModelTransformFlag
+{
+	None = 0,
+	Relative = 1 << 0,
+	RotatePivotPoint = 1 << 1,
+	Checkpoint = 1 << 2,
+	FirstMove = 1 << 3
+};
+
+Q_DECLARE_FLAGS(lcModelTransformFlags, lcModelTransformFlag)
+Q_DECLARE_OPERATORS_FOR_FLAGS(lcModelTransformFlags)
+
 struct lcInsertPieceInfo
 {
 	PieceInfo* Info;
@@ -372,14 +384,14 @@ public:
 	void ZoomExtents(lcCamera* Camera, float Aspect, const lcMatrix44& WorldMatrix);
 	void Zoom(lcCamera* Camera, float Amount);
 
-	void MoveSelectedObjects(const lcVector3& Distance, bool AllowRelative, bool AlternateButtonDrag, bool Checkpoint, bool FirstMove, lcModelHistoryEditMerge ModelHistoryEditMerge)
+	void MoveSelectedObjects(const lcVector3& Distance, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge)
 	{
-		MoveSelectedObjects(Distance, Distance, AllowRelative, AlternateButtonDrag, Checkpoint, FirstMove, ModelHistoryEditMerge);
+		MoveSelectedObjects(Distance, Distance, Flags, ModelHistoryEditMerge);
 	}
 
-	void MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector3& ObjectDistance, bool AllowRelative, bool AlternateButtonDrag, bool Checkpoint, bool FirstMove, lcModelHistoryEditMerge ModelHistoryEditMerge);
-	void RotateSelectedObjects(const lcVector3& Angles, bool Relative, bool RotatePivotPoint, bool Checkpoint, lcModelHistoryEditMerge ModelHistoryEditMerge);
-	void RotateSelectedObjects(const lcMatrix33& RotationMatrix, bool Relative, bool RotatePivotPoint, bool Checkpoint, lcModelHistoryEditMerge ModelHistoryEditMerge);
+	void MoveSelectedObjects(const lcVector3& PieceDistance, const lcVector3& ObjectDistance, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge);
+	void RotateSelectedObjects(const lcVector3& Angles, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge);
+	void RotateSelectedObjects(const lcMatrix33& RotationMatrix, lcModelTransformFlags Flags, lcModelHistoryEditMerge ModelHistoryEditMerge);
 	void ScaleSelectedPieces(const float Scale);
 	void TransformSelectedObjects(lcTransformType TransformType, const lcVector3& Transform);
 	void SetObjectsKeyFrame(const std::vector<lcObject*>& Objects, lcObjectPropertyId PropertyId, bool KeyFrame);
